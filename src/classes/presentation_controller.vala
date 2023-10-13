@@ -264,6 +264,10 @@ namespace pdfpc {
                 _presenter = value;
                 if (value != null) {
                     this.register_controllable(value);
+                    value.notify.connect((obj, param) => {
+                            if (param.name == "is-active")
+                                this.handle_auto_hide_event();
+                        });
                 }
             }
         }
@@ -282,6 +286,10 @@ namespace pdfpc {
                 _presentation = value;
                 if (value != null) {
                     this.register_controllable(value);
+                    value.notify.connect((obj, param) => {
+                            if (param.name == "is-active")
+                                this.handle_auto_hide_event();
+                        });
                 }
             }
         }
@@ -2225,5 +2233,37 @@ namespace pdfpc {
             rect = c.main_view.convert_poppler_rectangle_to_gdk_rectangle(area);
         }
 #endif
+
+        /**
+         * Timeout id to delay automatic hide of the presentation window
+         */
+        private uint auto_hide_timeout_id = 0;
+
+        private void handle_auto_hide_event() {
+            if (!Options.auto_hide)
+                return;
+
+            if (!this.presenter.is_active && !this.presentation.is_active) {
+                // Hide after 100 ms to prevent periodic hiding under some window
+                // managers (Gnome) and also hiding during transient deactivation of
+                // both windows, e.g. with "focus follows mouse" active and moving
+                // the mouse between the presenter and presentation windows.
+                if (this.auto_hide_timeout_id != 0)
+                    return;
+                this.auto_hide_timeout_id = GLib.Timeout.add(100, () => {
+                        this.hide_presentation(true);
+                        this.auto_hide_timeout_id = 0;
+                        return GLib.Source.REMOVE;
+                    });
+            } else {
+                if (this.auto_hide_timeout_id != 0) {
+                    // Cancel scheduled hiding
+                    GLib.Source.remove(this.auto_hide_timeout_id);
+                    this.auto_hide_timeout_id = 0;
+                } else {
+                    this.hide_presentation(false);
+                }
+            }
+        }
     }
 }
