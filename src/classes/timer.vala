@@ -34,7 +34,8 @@ namespace pdfpc {
         var seconds_now = dt_now.get_second();
 
         var diff_minutes = 60*(hours - hours_now) + (minutes - minutes_now);
-        if (diff_minutes < 0) {
+        print("diff_minutes: %d\n", diff_minutes);
+        if (diff_minutes < -60*12) {
             // Assume it's about tomorrow
             diff_minutes += 60*24;
         }
@@ -45,6 +46,13 @@ namespace pdfpc {
         dt = dt.add_seconds(-seconds_now);
 
         return (time_t) dt.to_unix();
+    }
+
+    string time_to_debug_str(time_t t) {
+        if (t == 0)
+            return "-";
+        var dt = new DateTime.from_unix_local(t);
+        return dt.format("%a %H:%M");
     }
 
     /**
@@ -74,6 +82,11 @@ namespace pdfpc {
          * Intended start time of the talk
          */
         protected time_t intended_start_time = 0;
+
+        /**
+         * Intended end time of the talk
+         */
+        protected time_t intended_end_time = 0;
 
         /*
          * Duration of the talk
@@ -116,12 +129,11 @@ namespace pdfpc {
          */
         public Timer(int duration = 0, string? start_time_str = null,
                      string? end_time_str = null) {
-            time_t intended_end_time = 0;
-
             // If all three values are given, ignore duration and print error
             if (start_time_str != null && end_time_str != null &&
                 duration > 0) {
                 printerr("Start and stop times given, duration is ignored\n");
+                duration = 0;
             }
 
             this.duration = duration;
@@ -140,8 +152,6 @@ namespace pdfpc {
                     // Assume an over-midnight talk...
                     intended_end_time += 24*3600;
                 }
-                this.duration = (int) (intended_end_time -
-                    this.intended_start_time);
             } else
             if (intended_end_time > 0 && duration > 0) {
                 intended_start_time = intended_end_time - duration;
@@ -151,9 +161,15 @@ namespace pdfpc {
                 this.state = State.PreTalk;
             }
 
-            if (this.duration > 0) {
+            if (this.duration > 0 || this.intended_end_time > 0) {
                 this.mode = Mode.CountDown;
             }
+
+            printerr("start: %s, end: %s, dur: %d\n",
+                     time_to_debug_str(this.intended_start_time),
+                     time_to_debug_str(this.intended_end_time),
+                     this.duration
+                );
 
             // Start the clock
             GLib.Timeout.add(1000, this.on_timeout);
@@ -242,7 +258,8 @@ namespace pdfpc {
                 this.run();
                 break;
             case State.Running:
-                this.state = State.Paused;
+                if (this.intended_end_time == 0)
+                    this.state = State.Paused;
                 break;
             default:
                 break;
@@ -353,7 +370,11 @@ namespace pdfpc {
                     timeInSecs = this.running_time;
                     break;
                 default:
-                    timeInSecs = this.duration - this.running_time;
+                    if (this.duration > 0) {
+                        timeInSecs = this.duration - this.running_time;
+                    } else if (this.intended_end_time > 0) {
+                        timeInSecs = (int) (this.intended_end_time - this.now);
+                    }
                     break;
                 }
                 break;

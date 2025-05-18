@@ -1,0 +1,31 @@
+
+Problems:
+
+- Running with just =-e HH:MM= doesn’t work
+
+- Starting with =-t ST:RT -e HH:MM= before ST:RT works, but when one
+  restarts with the same command line after ST:RT (e.g. after
+  accidental close of pdfpc during the talk), timers are off by
+  24 hours.
+
+- Starting with =-t ST:RT -e EN:DT= is internally transformed to
+  =-t ST:RT -d ENDT-STRT=. This is problematic when the the speaker
+  accidentally pauses the timer (=p= key). After resuming, the
+  count-down doesn’t show time until EN:DT, but until some later time,
+  potentially causing the speaker to overrun the planned talk slot.
+
+
+|    |    |    | def. | can   | pretalk   |
+| -t | -e | -d | mode | pause | available |
+|----+----+----+------+-------+-----------|
+| x  |    |    | up   | yes   | yes       |
+|    | x  |    | down | no    | no        |
+|    |    | x  | down | yes   | no        |
+| x  | x  | -  | down | no    | yes       |
+| x  |    | x  | down | yes   | yes       |
+|    | x  | x  | down | no    | yes       |
+
+
+Legend:
+x .. some value given
+- .. value ignored
